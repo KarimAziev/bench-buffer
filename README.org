@@ -1,0 +1,85 @@
+#+TITLE: bench-buffer
+#+AUTHOR: Karim Aziiev
+#+EMAIL: karim.aziiev@gmail.com
+
+* bench-buffer
+
+Benchmark elisp forms in editable buffer.
+
+** Requirements
+
++ Emacs >= 27.1
++ [[https://github.com/KarimAziev/fp][fp]]
+
+** Installation
+
+*** Manual
+
+Download dependencies and source:
+
+#+begin_src shell
+git clone https://github.com/KarimAziev/fp.git fp
+git clone https://github.com/KarimAziev/bench-buffer.git bench-buffer 
+#+end_src
+
+Add downloaded directories to your load path: 
+#+begin_src elisp :eval no
+
+(add-to-list 'load-path "/path/to/fp")
+(add-to-list 'load-path "/path/to/bench-buffer")
+(require 'bench-buffer)
+#+end_src
+
+
+*** With use-package and straight
+
+Install dependencies and source:
+
+#+begin_src elisp :eval no
+
+(use-package fp
+  :straight (:repo "KarimAziev/fp"
+                   :type git
+                   :host github))
+
+(use-package bench-buffer
+  :straight (bench-buffer
+             :repo "KarimAziev/bench-buffer"
+             :type git
+             :host github)
+  :bind ((:map bench-buffer-buffer-default-keymap
+               ("C-c C-c" . bench-buffer-edit-buffer-edit-done)
+               ("C-c C-k" . kill-this-buffer)
+               ("C-c C-n" . bench-buffer-setup-edit-next-history-element)
+               ("C-c C-p" . bench-buffer-setup-edit-prev-history-element)
+               ("C-x C-s" . bench-buffer--save-current-element)
+               ("C-x 0" . kill-this-buffer)
+               ("C-x s" . bench-buffer--save-history)))
+  :commands (bench-buffer))
+
+#+end_src
+
+** Commands
+
+*** ~bench-buffer~
+Create editable buffer for benching elisp top forms.  When done, exit with ~C-c C-c.~ This will run benchmark on every elisp form.
+*** ~bench-buffer-edit-buffer-edit-done~
+Run benchmarks and show results.
+*** ~bench-buffer--save-current-element~
+Save current content in "*bench-buffer*" to ~bench-buffer--history-file.~
+*** ~bench-buffer--save-history~
+Save history.
+*** ~bench-buffer--cleanup-history~
+Cleanup history.
+*** ~bench-buffer-setup-edit-next-history-element~
+Insert next history content.
+*** ~bench-buffer-setup-edit-prev-history-element~
+Insert previous history content.
+*** ~bench-buffer-print-result~
+Print result of benchmarks in tabulated mode.
+** Customization
+
+*** ~bench-buffer--history-max-size~
+Max size for history.
+*** ~bench-buffer--history-file~
+File to save history.
