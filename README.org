@@ -62,7 +62,7 @@ Install dependencies and source:
 ** Commands
 
 *** ~bench-buffer~
-Create editable buffer for benching elisp top forms.  When done, exit with ~C-c C-c.~ This will run benchmark on every elisp form.
+Create editable buffer for benching elisp top forms.  When done, exit with ~C-c C-c~. This will run benchmark on every elisp form.
 *** ~bench-buffer-edit-buffer-edit-done~
 Run benchmarks and show results.
 *** ~bench-buffer--save-current-element~
