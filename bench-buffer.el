@@ -249,25 +249,34 @@ SORT-COLS is indexes of columns to add sorting as numbers."
 
 (defun bench-buffer-format-results (result)
   "Format RESULT to org table."
-  (setq result
-        (seq-sort-by (lambda (it)
-                       (nth 2 it))
-                     #'> bench-buffer-result))
-  (mapcar
-   (lambda (it)
-     (append (seq-subseq it 0 2)
-             (list (format "%.6f" (nth 2 it)))
-             (seq-subseq it 3)))
-   result))
+  (let* ((by-fastest (seq-sort-by (fp-partial nth 2) '< result))
+         (fastest (car by-fastest))
+         (slowest (car (last by-fastest))))
+    (mapcar
+     (lambda (it)
+       (let ((label (if (= (car it)
+                           (car fastest))
+                        "Fastest"
+                      (if (= (car it)
+                             (car slowest))
+                          "Slowest"
+                        ""))))
+         (append (seq-subseq it 0 2)
+                 (list (format "%.6f" (nth 2 it)))
+                 (list label)
+                 (seq-subseq it 3))))
+     result)))
 
 ;;;###autoload
 (defun bench-buffer-print-result ()
   "Print result of benchmarks in tabulated mode."
   (interactive)
   (bench-buffer-show-tabulated-results (bench-buffer-format-results
-                                      bench-buffer-result)
-                                     '("Idx" "Form" "Time"
-                                       "GC-count"  "GC-time")))
+                                        bench-buffer-result)
+                                       '(("Idx" 5)
+                                         ("Form" 70) "Time"
+                                         ""
+                                         "GC-count"  "GC-time")))
 
 (defun bench-buffer-unquote (exp)
   "Return EXP unquoted."
