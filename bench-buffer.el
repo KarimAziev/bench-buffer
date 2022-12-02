@@ -220,8 +220,9 @@ SORT-COLS is indexes of columns to add sorting as numbers."
          (entries (cdr table)))
     (if-let ((buffer (get-buffer "*bench-buffer-result*")))
         (with-current-buffer buffer
-          entries
-          (tabulated-list-print nil t)
+          (setq-local tabulated-list-entries
+                      entries)
+          (tabulated-list-print)
           (pop-to-buffer (current-buffer)))
       (with-current-buffer (get-buffer-create "*bench-buffer-result*")
         (let ((table
