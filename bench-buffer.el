@@ -300,8 +300,15 @@ SORT-COLS is indexes of columns to add sorting as numbers."
                  (fp-compose
                   not
                   (fp-or special-form-p
+                         subrp
                          (fp-rpartial 'memq
-                                      '(let defun default-directory)))))
+                                      '(let let* defun default-directory
+                                            car cdr nth aref elt if and or + -
+                                            1+ 1- min max car-safe cdr-safe
+                                            progn prog1 prog2
+                                            * / % length memq list vector
+                                            vectorp
+                                            < > <= >= = error)))))
                 (reverse (flatten-list (nth idx items))))))
              (sym (bench-buffer-unquote (car key-parts))))
         (setq names (push sym names))))
