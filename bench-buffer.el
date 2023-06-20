@@ -61,8 +61,8 @@
   (tabulated-list-init-header))
 
 (defun bench-buffer-print-results ()
-	"Show ITEMS in tabulated list mode with HEADER and PADDING."
-	(let ((buffer (get-buffer-create "*bench-buffer-results*")))
+  "Show ITEMS in tabulated list mode with HEADER and PADDING."
+  (let ((buffer (get-buffer-create "*bench-buffer-results*")))
     (with-current-buffer buffer
       (unless (derived-mode-p 'bench-buffer-report-mode)
         (bench-buffer-report-mode))
@@ -73,8 +73,8 @@
       (pop-to-buffer buffer))))
 
 (defun bench-buffer-format-results (result)
-	"Format RESULT to org table."
-	(let* ((by-fastest (seq-sort-by (fp-partial nth 2) '< result))
+  "Format RESULT to org table."
+  (let* ((by-fastest (seq-sort-by (fp-partial nth 2) '< result))
          (fastest (car by-fastest))
          (slowest (car (last by-fastest))))
     (mapcar
@@ -94,45 +94,63 @@
 
 ;;;###autoload
 (defun bench-buffer-print-result ()
-	"Print result of benchmarks in tabulated mode."
-	(interactive)
+  "Print result of benchmarks in tabulated mode."
+  (interactive)
   (bench-buffer-print-results))
 
 (defun bench-buffer-unquote (exp)
-	"Return EXP unquoted."
-	(declare (pure t)
+  "Return EXP unquoted."
+  (declare (pure t)
            (side-effect-free t))
   (while (memq (car-safe exp) '(quote function))
     (setq exp (cadr exp)))
   exp)
 
+
 (defun bench-buffer-map-names (items)
-	"Return list of uniq symbols from ITEMS."
-	(let ((names))
-    (dotimes (idx (length items))
-      (let* ((key-parts
-              (seq-drop-while
-               (lambda (k)
-                 (memq (bench-buffer-unquote k) names))
-               (seq-filter
-                (fp-and
-                 symbolp
-                 functionp
-                 (fp-compose
-                  not
-                  (fp-or special-form-p
-                         subrp
-                         (fp-rpartial 'memq
-                                      '(let let* defun default-directory
-                                            car cdr nth aref elt if and or + -
-                                            1+ 1- min max car-safe cdr-safe
-                                            progn prog1 prog2
-                                            * / % length memq list vector
-                                            vectorp
-                                            < > <= >= = error)))))
-                (reverse (flatten-list (nth idx items))))))
-             (sym (bench-buffer-unquote (car key-parts))))
-        (setq names (push sym names))))
+  "Return list of uniq symbols from ITEMS."
+  (let ((names)
+        (flatten-items
+         (mapcar (fp-compose
+                  (apply-partially #'mapcar #'bench-buffer-unquote)
+                  (apply-partially
+                   #'seq-filter
+                   (fp-and
+                    symbolp
+                    functionp
+                    (fp-compose
+                     not
+                     (fp-or special-form-p
+                            subrp
+                            (fp-rpartial
+                             memq
+                             '(let let* defun default-directory
+                                   car cdr nth aref
+                                   elt if and or + -
+                                   1+ 1- min max
+                                   car-safe cdr-safe
+                                   progn prog1 prog2
+                                   * / % length memq
+                                   list vector
+                                   vectorp
+                                   < > <= >= = error))))))
+                  reverse
+                  flatten-list)
+                 items))
+        (key-parts)
+        (processed)
+        (idx 0))
+    (while (setq key-parts (pop flatten-items))
+      (let ((sym (or (seq-find (lambda (key)
+                                 (not (memq key
+                                            (flatten-list
+                                             (append processed
+                                                     flatten-items)))))
+                               key-parts)
+                     idx)))
+        (setq names (push sym names))
+        (setq idx (1+ idx))
+        (push key-parts processed)))
     (reverse names)))
 
 (defvar bench-buffer-buffer-default-keymap
@@ -150,12 +168,12 @@
     map))
 
 (defun bench-buffer-setup-edit-get-next-or-prev-history (n)
-	"Return the N element of `km-setup-edit--buffer-name'."
-	(let* ((values
-					(or bench-buffer--history
-							(when bench-buffer--history-file
-								(setq bench-buffer--history (bench-buffer--unserialize
-																						 bench-buffer--history-file)))))
+  "Return the N element of `km-setup-edit--buffer-name'."
+  (let* ((values
+          (or bench-buffer--history
+              (when bench-buffer--history-file
+                (setq bench-buffer--history (bench-buffer--unserialize
+                                             bench-buffer--history-file)))))
          (max (1- (length values)))
          (sum (+ n bench-buffer--history-idx))
          (next-idx (if (and (>= sum 0)
@@ -167,8 +185,8 @@
 
 ;;;###autoload
 (defun bench-buffer-setup-edit-prev-history-element ()
-	"Insert previous history content."
-	(interactive)
+  "Insert previous history content."
+  (interactive)
   (erase-buffer)
   (when-let ((str (bench-buffer-setup-edit-get-next-or-prev-history -1)))
     (goto-char (point-min))
@@ -177,8 +195,8 @@
 
 ;;;###autoload
 (defun bench-buffer-setup-edit-next-history-element ()
-	"Insert next history content."
-	(interactive)
+  "Insert next history content."
+  (interactive)
   (erase-buffer)
   (when-let ((str (bench-buffer-setup-edit-get-next-or-prev-history 1)))
     (goto-char (point-min))
@@ -186,18 +204,18 @@
       (insert str))))
 
 (defun bench-buffer--serialize (data filename)
-	"Serialize DATA to FILENAME.
+  "Serialize DATA to FILENAME.
 
 The saved data can be restored with `bench-buffer--unserialize'."
-	(when (file-writable-p filename)
+  (when (file-writable-p filename)
     (with-temp-file filename
       (insert
-			 (let (print-length)
+       (let (print-length)
          (prin1-to-string data))))))
 
 (defun bench-buffer--unserialize (filename)
-	"Read data serialized by `bench-buffer--serialize' from FILENAME."
-	(with-demoted-errors
+  "Read data serialized by `bench-buffer--serialize' from FILENAME."
+  (with-demoted-errors
       "Error during file deserialization: %S"
     (when (file-exists-p filename)
       (with-temp-buffer
@@ -205,21 +223,21 @@ The saved data can be restored with `bench-buffer--unserialize'."
         (read (buffer-string))))))
 
 (defun bench-buffer--cleanup-history ()
-	"Cleanup history."
-	(interactive)
+  "Cleanup history."
+  (interactive)
   (setq bench-buffer--history
         nil)
   (bench-buffer--save-history))
 
 (defun bench-buffer--save-history ()
-	"Save history."
-	(interactive)
+  "Save history."
+  (interactive)
   (when bench-buffer--history-file
     (bench-buffer--serialize bench-buffer--history bench-buffer--history-file)))
 
 (defun bench-buffer--save-current-element ()
-	"Save current content in \"*bench-buffer*\" to `bench-buffer--history-file'."
-	(interactive)
+  "Save current content in \"*bench-buffer*\" to `bench-buffer--history-file'."
+  (interactive)
   (let ((elem (string-trim (buffer-substring-no-properties (point-min)
                                                            (point-max))))
         (history (bench-buffer--unserialize bench-buffer--history-file)))
@@ -231,14 +249,14 @@ The saved data can be restored with `bench-buffer--unserialize'."
       (message "Saved"))))
 
 (defun bench-buffer-setup-edit-buffer (&optional content setup-args)
-	"Return editable buffer with CONTENT in popup window.
+  "Return editable buffer with CONTENT in popup window.
 If ON-DONE is a function, invoke it with buffer content.
 SETUP-ARGS can includes keymaps, syntax table, filename and function.
 A filename can be opened with \\<igist-edit-buffer-default-keymap>\.
 A function will be called without args inside quit function.
 
 If SETUP-ARGS contains syntax table, it will be used in the inspect buffer."
-	(let ((buffer (get-buffer-create (concat "*bench-buffer*")))
+  (let ((buffer (get-buffer-create (concat "*bench-buffer*")))
         (keymaps (seq-filter #'keymapp setup-args)))
     (with-current-buffer buffer
       (erase-buffer)
@@ -263,10 +281,10 @@ Use `\\[bench-buffer-edit-buffer-edit-done]' when done")))
     buffer))
 
 (defun bench-buffer-scan-top-level-lists ()
-	"Return all Lisp lists at outermost position in current buffer.
+  "Return all Lisp lists at outermost position in current buffer.
 An \"outermost position\" means one that it is outside of any syntactic entity:
 outside of any parentheses, comments, or strings encountered in the scan."
-	(let ((sexps)
+  (let ((sexps)
         (sexp))
     (goto-char (point-min))
     (while (setq sexp (ignore-errors (read (current-buffer))))
@@ -279,15 +297,15 @@ outside of any parentheses, comments, or strings encountered in the scan."
 
 ;;;###autoload
 (defun bench-buffer-scan-cancel-timer ()
-	"Reset `bench-buffer-scan-timer'."
-	(interactive)
+  "Reset `bench-buffer-scan-timer'."
+  (interactive)
   (when (timerp bench-buffer-scan-timer)
     (cancel-timer bench-buffer-scan-timer))
   (setq bench-buffer-scan-timer nil))
 
 (defun bench-buffer-render-chunk-in-buffer (buffer spec repetitions)
-	"Render symbols in SPEC used in other forms to BUFFER."
-	(when (buffer-live-p buffer)
+  "Render symbols in SPEC used in other forms to BUFFER."
+  (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (bench-buffer-scan-cancel-timer)
       (when spec
@@ -319,8 +337,8 @@ outside of any parentheses, comments, or strings encountered in the scan."
 
 ;;;###autoload
 (defun bench-buffer-edit-buffer-edit-done (repetitions)
-	"Run benchmarks REPETITIONS times and show results."
-	(interactive (list (read-number "Repetions: " 10)))
+  "Run benchmarks REPETITIONS times and show results."
+  (interactive (list (read-number "Repetions: " 10)))
   (bench-buffer-scan-cancel-timer)
   (setq bench-buffer-result nil)
   (let* ((forms (bench-buffer-scan-top-level-lists))
@@ -344,11 +362,11 @@ outside of any parentheses, comments, or strings encountered in the scan."
 
 ;;;###autoload
 (defun bench-buffer ()
-	"Create editable buffer for benching elisp top forms.
+  "Create editable buffer for benching elisp top forms.
 \\<bench-buffer-buffer-default-keymap>
 When done, exit with `\\[bench-buffer-edit-buffer-edit-done]'.  This \
 will run benchmark on every elisp form."
-	(interactive)
+  (interactive)
   (pop-to-buffer (bench-buffer-setup-edit-buffer)))
 
 (provide 'bench-buffer)
