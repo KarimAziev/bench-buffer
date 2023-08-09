@@ -252,7 +252,7 @@ The saved data can be restored with `bench-buffer--unserialize'."
   "Return editable buffer with CONTENT in popup window.
 If ON-DONE is a function, invoke it with buffer content.
 SETUP-ARGS can includes keymaps, syntax table, filename and function.
-A filename can be opened with \\<igist-edit-buffer-default-keymap>\.
+A filename can be opened with \\<bench-buffer-buffer-default-keymap>\.
 A function will be called without args inside quit function.
 
 If SETUP-ARGS contains syntax table, it will be used in the inspect buffer."
