@@ -52,8 +52,7 @@
   "Bench-buffer"
   "Show report gathered about unused definitions."
   (setq tabulated-list-format
-        [("Id" 5 t)
-         ("Name" 30 t)
+        [("Name" 30 t)
          ("Time" 20 t)
          ("GC-count" 10 t)
          ("GC-time" 10 t)
@@ -72,24 +71,46 @@
       (tabulated-list-print)
       (pop-to-buffer buffer))))
 
+
+(defun bench-buffer-jump-to-entry (beg)
+  "Jump to a specific entry in the benchmark buffer and highlight it.
+
+Argument BEG is a position in the buffer, typically a number, where the function
+will jump to."
+  (let* ((buff (get-buffer "*bench-buffer*"))
+         (wnd (or (get-buffer-window buff)
+                  (get-buffer-window (pop-to-buffer buff)))))
+    (with-selected-window wnd
+      (goto-char beg)
+      (pulse-momentary-highlight-one-line))))
+
 (defun bench-buffer-format-results (result)
   "Format RESULT to org table."
-  (let* ((by-fastest (seq-sort-by (fp-partial nth 2) '< result))
-         (fastest (car by-fastest))
-         (slowest (car (last by-fastest))))
+  (let* ((by-fastest (seq-sort-by (fp-partial nth 3) #'< result))
+         (fastest (nth 3 (car by-fastest)))
+         (slowest (nth 3 (car (last by-fastest)))))
     (mapcar
-     (lambda (it)
-       (let ((label (if (= (car it)
-                           (car fastest))
-                        "Fastest"
-                      (if (= (car it)
-                             (car slowest))
-                          "Slowest"
-                        ""))))
-         (list (format "%s" (car it))
-               (apply #'vector (mapcar (apply-partially 'format "%s")
-                                       (append it
-                                               (list label)))))))
+     (pcase-lambda (`(,name ,beg ,_end ,time ,count-gc ,time-gc))
+       (let ((label
+              (pcase time
+                ((pred (= fastest)) "Fastest")
+                ((pred (= slowest)) "Slowest")
+                (_ ""))))
+         (list (format "%s" name)
+               (apply #'vector (mapcar
+                                (fp-when
+                                  (fp-not listp)
+                                  (apply-partially #'format "%s"))
+                                (list
+                                 (list
+                                  (format "%s" name)
+                                  'action
+                                  #'bench-buffer-jump-to-entry 'button-data
+                                  beg)
+                                 time
+                                 count-gc
+                                 time-gc
+                                 label))))))
      result)))
 
 ;;;###autoload
@@ -252,7 +273,7 @@ The saved data can be restored with `bench-buffer--unserialize'."
   "Return editable buffer with CONTENT in popup window.
 If ON-DONE is a function, invoke it with buffer content.
 SETUP-ARGS can includes keymaps, syntax table, filename and function.
-A filename can be opened with \\<bench-buffer-buffer-default-keymap>\.
+A filename can be opened with \\<bench-buffer-buffer-default-keymap>\\.
 A function will be called without args inside quit function.
 
 If SETUP-ARGS contains syntax table, it will be used in the inspect buffer."
@@ -280,6 +301,8 @@ If SETUP-ARGS contains syntax table, it will be used in the inspect buffer."
 Use `\\[bench-buffer-edit-buffer-edit-done]' when done")))
     buffer))
 
+
+
 (defun bench-buffer-scan-top-level-lists ()
   "Return all Lisp lists at outermost position in current buffer.
 An \"outermost position\" means one that it is outside of any syntactic entity:
@@ -288,7 +311,22 @@ outside of any parentheses, comments, or strings encountered in the scan."
         (sexp))
     (goto-char (point-min))
     (while (setq sexp (ignore-errors (read (current-buffer))))
-      (push sexp sexps))
+      (let ((sexp-end (point))
+            (sexp-start))
+        (let ((name (save-excursion
+                      (ignore-errors
+                        (backward-sexp 1)
+                        (setq sexp-start (point))
+                        (when (save-excursion
+                                (skip-chars-backward "\s\t\n\r\f")
+                                (nth 4 (syntax-ppss (point))))
+                          (let ((beg)
+                                (end (point)))
+                            (forward-comment most-negative-fixnum)
+                            (setq beg (point))
+                            (string-trim
+                             (buffer-substring-no-properties beg end))))))))
+          (push (list name sexp-start sexp-end sexp) sexps))))
     (reverse sexps)))
 
 (defvar-local bench-buffer-scan-timer nil)
@@ -309,21 +347,25 @@ outside of any parentheses, comments, or strings encountered in the scan."
     (with-current-buffer buffer
       (bench-buffer-scan-cancel-timer)
       (when spec
-        (pcase-let ((`(,i ,name ,form) spec))
+        (pcase-let ((`(,name ,beg ,end ,form) spec))
           (let* ((lexical-binding t)
                  (compile-fn (if (native-comp-available-p)
-                                 'native-compile
-                               'byte-compile))
+                                 #'native-compile
+                               #'byte-compile))
                  (fn `(lambda ()
                         (,@form)))
                  (compiled (funcall compile-fn fn)))
+            (message "bench-buffer-render-chunk-in-buffer
+                      | Form  | %s"
+                     form)
             (garbage-collect)
             (let ((res (benchmark-call compiled repetitions)))
               (setq bench-buffer-result (nconc
                                          bench-buffer-result
                                          (list (append (list
-                                                        i
-                                                        name)
+                                                        name
+                                                        beg
+                                                        end)
                                                        res)))))
             (bench-buffer-print-results))))
       (if-let ((next-form (pop bench-buffer-forms)))
@@ -341,13 +383,16 @@ outside of any parentheses, comments, or strings encountered in the scan."
   (interactive (list (read-number "Repetions: " 10)))
   (bench-buffer-scan-cancel-timer)
   (setq bench-buffer-result nil)
-  (let* ((forms (bench-buffer-scan-top-level-lists))
+  (let* ((full-forms (bench-buffer-scan-top-level-lists))
+         (forms (mapcar (apply-partially #'nthcdr 3) full-forms))
          (names (bench-buffer-map-names
                  forms))
-         (final-items (seq-map-indexed (lambda (name i)
-                                         (let ((form (nth i forms)))
-                                           (list i name form)))
-                                       names)))
+         (final-items (seq-map-indexed (lambda (form i)
+                                         (if (car form)
+                                             form
+                                           (setcar form (nth i names))
+                                           form))
+                                       full-forms)))
     (add-to-history 'bench-buffer--history
                     (buffer-substring-no-properties (point-min)
                                                     (point-max))
