@@ -107,7 +107,7 @@ will jump to."
                                   'action
                                   #'bench-buffer-jump-to-entry 'button-data
                                   beg)
-                                 time
+                                 (bench-buffer-format-to-ms time)
                                  count-gc
                                  time-gc
                                  label))))))
@@ -341,6 +341,17 @@ outside of any parentheses, comments, or strings encountered in the scan."
     (cancel-timer bench-buffer-scan-timer))
   (setq bench-buffer-scan-timer nil))
 
+
+(defun bench-buffer-format-to-ms (value)
+  "Format the given VALUE to milliseconds if it's in scientific notation.
+
+Argument VALUE is any number that will be formatted as a string."
+  (let ((str (format "%s" value)))
+    (if (string-match-p
+         "^[+-]?\\([0-9]+\\.?[0-9]*\\|[0-9]*\\.?[0-9]+\\)[eE][+-]?[0-9]+$" str)
+        (format "%s" (* value 1000))
+      str)))
+
 (defun bench-buffer-render-chunk-in-buffer (buffer spec repetitions)
   "Render symbols in SPEC used in other forms to BUFFER."
   (when (buffer-live-p buffer)
@@ -355,9 +366,6 @@ outside of any parentheses, comments, or strings encountered in the scan."
                  (fn `(lambda ()
                         (,@form)))
                  (compiled (funcall compile-fn fn)))
-            (message "bench-buffer-render-chunk-in-buffer
-                      | Form  | %s"
-                     form)
             (garbage-collect)
             (let ((res (benchmark-call compiled repetitions)))
               (setq bench-buffer-result (nconc
