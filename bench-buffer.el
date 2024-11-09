@@ -209,7 +209,7 @@ will jump to."
   "Insert previous history content."
   (interactive)
   (erase-buffer)
-  (when-let ((str (bench-buffer-setup-edit-get-next-or-prev-history -1)))
+  (when-let* ((str (bench-buffer-setup-edit-get-next-or-prev-history -1)))
     (goto-char (point-min))
     (save-excursion
       (insert str))))
@@ -219,7 +219,7 @@ will jump to."
   "Insert next history content."
   (interactive)
   (erase-buffer)
-  (when-let ((str (bench-buffer-setup-edit-get-next-or-prev-history 1)))
+  (when-let* ((str (bench-buffer-setup-edit-get-next-or-prev-history 1)))
     (goto-char (point-min))
     (save-excursion
       (insert str))))
@@ -376,7 +376,7 @@ Argument VALUE is any number that will be formatted as a string."
                                                         end)
                                                        res)))))
             (bench-buffer-print-results))))
-      (if-let ((next-form (pop bench-buffer-forms)))
+      (if-let* ((next-form (pop bench-buffer-forms)))
           (setq bench-buffer-scan-timer
                 (run-with-idle-timer 0.1 nil
                                      #'bench-buffer-render-chunk-in-buffer
